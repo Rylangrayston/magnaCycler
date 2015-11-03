@@ -15,13 +15,13 @@
  */
  
  
- 
+int pauseButtonPin = 6;
 int solinoidPulseTime = 100;
 int solinoidOnPin = 3;
 int solinoidOffPin = 2;
 int cammeraShuterPin = 7;
 int lastTime = 0;
-int ssRelayPin = 6;
+int ssRelayPin = A0;
 int relayStartUpTime = 100;
 
 int powerOffBeforeConnectDelay = 100;
@@ -31,25 +31,27 @@ boolean powerOffBeforeConnect = false;
 boolean powerOffBeforeDisconnect = false;
 
 
-float cycleCount = 0;
+unsigned long cycleCount = 0;
 
-int powerOnTime =  500;
+int powerOnTime =  2000;
 int powerOffTime = 40;
-long totalCycles = 200000;
+unsigned long totalCycles = 200000;
 int cyclesPerPicture = 1000;
 
 int cycleTime = powerOnTime + powerOffTime + 2 * solinoidPulseTime ;
+boolean useScreen = true;
+boolean paused = true;
 
 
 
+//  Screen stuff:  
 
-
-//  Screen stuff:                     
 #include <LCD5110_Graph.h>
 //             sck, Mosi, dc, rst, cs
 LCD5110 myGLCD(8,   9,  10, 12,   11);
 extern uint8_t SmallFont[];
 extern uint8_t MediumNumbers[];
+
 
 void connectBrass()
 {
@@ -80,13 +82,15 @@ void cycleContact()
   }
   
   connectBrass();
-  delay(powerOnTime);
-  
-  if (powerOffBeforeConnect == true)
+   if (powerOffBeforeConnect == true)
   {
     delay(powerOffBeforeConnectDelay);
     digitalWrite(ssRelayPin, HIGH);
-  }
+  } 
+  
+  delay(powerOnTime);//////////////////////////////////////////////// amprage is high here
+  
+
   
   if (powerOffBeforeDisconnect == true)
   {
@@ -96,71 +100,56 @@ void cycleContact()
   
   disconnectBrass();
   delay(powerOffTime);
+  digitalWrite(ssRelayPin, LOW);
   
 }
 
 
 
-void doScreenStuff()
+void updateJobRunningScreen()
 {
  
   myGLCD.setFont(SmallFont);
   myGLCD.clrScr();
-  myGLCD.print("Will Toppings", CENTER, 0);
-  
-  //myGLCD.invertText(true);
-  myGLCD.print(" Magna Cycler ", CENTER, 8);
-  //myGLCD.invertText(false);
-  myGLCD.print("Cycles", CENTER, 16);
-  myGLCD.print(" Fuck Ya ", CENTER, 40);
-  myGLCD.update();
-
-  myGLCD.setFont(MediumNumbers);
-  
-  
-  //for (int s=20; s>=0; s--)
-  //for (int s=20; s>=0; s--)
- // {
-    //myGLCD.printNumI(s, CENTER, 24, 2, '0');
     
-    
-    myGLCD.printNumI(          cycleCount    , CENTER, 24, 2, '0');
-    myGLCD.update();
-    //delay(1000);
- // }
+  String countMesage = "count: ";
+  countMesage += String(cycleCount);
+  String totalCyclesMesage = "of:" + String(totalCycles);
+  String featureMesage = "POBC:" + String(powerOffBeforeConnect) + " POBD:" + String(powerOffBeforeDisconnect); ///////////////
+  String powerOnTimeMesage = "POT:" + String(powerOnTime);
   
-    //myGLCD.enableSleep();
-    //myGLCD.clrScr();
-    //myGLCD.setFont(SmallFont);
-    //myGLCD.print("Awake again!", CENTER, 0);
-    //myGLCD.print("Text has been", CENTER, 16);
-    //myGLCD.print("changed while", CENTER, 24);
-    //myGLCD.print("in Sleep Mode.", CENTER, 32);
-    //delay(5000);
-    //myGLCD.disableSleep();
-    //delay(5000);
+  myGLCD.print("Magna Cycler", CENTER , 0);
+  myGLCD.print(countMesage, CENTER, 8); 
+  myGLCD.print(totalCyclesMesage, CENTER, 16);
+  myGLCD.print(powerOnTimeMesage, CENTER, 24);
+  myGLCD.print(featureMesage, CENTER , 32);
+  if(paused) 
+    {
+    myGLCD.invertText(true);
+    myGLCD.print("PAUSED", CENTER , 40);
+    myGLCD.invertText(false);
+    }
+   else{ myGLCD.print("RUNNING", CENTER , 40);}
+   
+   myGLCD.update();
     
-     
 }
-  
-                    
+                 
 
 
 void setup()
 {
+
   myGLCD.InitLCD();
-                   // initialize serial communication at 9600 bits per second:
+             // initialize serial communication at 9600 bits per second:
                    Serial.begin(9600);
                   
-                   //pinMode(pushButtonPin, INPUT_PULLUP);
+                    pinMode(pauseButtonPin, INPUT_PULLUP);
                     pinMode(solinoidOnPin, OUTPUT); 
                     pinMode(solinoidOffPin, OUTPUT);
                     pinMode(cammeraShuterPin, OUTPUT);
                     pinMode(ssRelayPin, OUTPUT);
-                    
-                    
-                    
-
+                   
 if (powerOffBeforeConnect == true) {cycleTime += powerOffBeforeConnect;} 
 if (powerOffBeforeConnect == false) {cycleTime += relayStartUpTime;}
 if (powerOffBeforeDisconnect == true) {cycleTime += powerOffBeforeDisconnect;} 
@@ -172,12 +161,18 @@ if (powerOffBeforeDisconnect == true) {cycleTime += powerOffBeforeDisconnect;}
 
 void loop()
 {
+
+if (useScreen) {
+updateJobRunningScreen();
+}  
+
+if (digitalRead(pauseButtonPin) == LOW )
+{
+paused = false;
 cycleCount += 1;
-
-doScreenStuff();  
-    
 cycleContact();
-
+}
+else{paused = true;}
 
 
 }
